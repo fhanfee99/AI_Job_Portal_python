@@ -2,8 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { MapPin, Building2, Clock, Search, X, Upload } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { useNavigate } from 'react-router-dom';
-import { Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 const Home = () => {
   const [appliedJobIds, setAppliedJobIds] = useState([]);
@@ -12,118 +11,107 @@ const Home = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [locationQuery, setLocationQuery] = useState("");
+  const [selectedJob, setSelectedJob] = useState(null);
+  const [resume, setResume] = useState(null);
   const jobsSectionRef = useRef(null);
 
+  // BASE_URL for easy management
+  const API_URL = "https://farhanahanfee.pythonanywhere.com";
+
+  // 1. Fetch All Jobs
   const fetchJobs = async () => {
     setLoading(true);
     try {
-        const API_URL = process.env.REACT_APP_API_URL || "https://farhanahanfee.pythonanywhere.com";
-        const response = await axios.get(`${API_URL}/api/jobs/?search=${searchQuery}&location=${locationQuery}`);
-    //   const response = await axios.get(`http://127.0.0.1:8000/api/jobs/?search=${searchQuery}&location=${locationQuery}`);
+      // Slashes '/' are critical in Django URLs
+      const response = await axios.get(`${API_URL}/api/jobs/`, {
+        params: {
+          search: searchQuery,
+          location: locationQuery
+        }
+      });
       setJobs(response.data);
       setLoading(false);
 
-      if(searchQuery || locationQuery) {
+      if (searchQuery || locationQuery) {
         jobsSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
       }
     } catch (error) {
       console.error("Error fetching jobs:", error);
+      toast.error("Could not load jobs. Check your connection.");
       setLoading(false);
     }
   };
 
+  // 2. Fetch User's Applied Jobs (on login)
   const fetchAppliedJobs = async () => {
     const token = localStorage.getItem('access_token');
-    if (!token) {
-        console.log("No token found, skipping applied jobs fetch.");
-        return;
-    }
+    if (!token) return;
 
     try {
-        const API_URL = process.env.REACT_APP_API_URL || "https://farhanahanfee.pythonanywhere.com";
-        const res = await axios.get(`${API_URL}/api/jobs/my-applications/`,{
-        //const res = await axios.get('http://127.0.0.1:8000/api/jobs/my-applications/', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
+      const res = await axios.get(`${API_URL}/api/jobs/my-applications/`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
 
-        const ids = res.data.map(app => {
-            if (typeof app.job === 'object') return Number(app.job.id);
-            return Number(app.job);
-        });
-
-        console.log("Fetched Applied IDs on Reload:", ids);
-        setAppliedJobIds(ids);
+      const ids = res.data.map(app => {
+        if (typeof app.job === 'object') return Number(app.job.id);
+        return Number(app.job);
+      });
+      setAppliedJobIds(ids);
     } catch (err) {
-        console.error("Error fetching applied jobs on reload:", err);
+      console.error("Error fetching applied jobs:", err);
     }
-};
+  };
 
   useEffect(() => {
     fetchJobs();
     fetchAppliedJobs();
   }, []);
 
-  const [selectedJob, setSelectedJob] = useState(null);
-  const [resume, setResume] = useState(null);
-
+  // 3. Submit Application Logic
   const handleApplySubmit = async () => {
-    if (!selectedJob) return;
-
-    const jobIdToStore = selectedJob?.id;
-    if (!jobIdToStore) {
-        toast.error("Job ID not found!");
-        return;
+    if (!selectedJob || !resume) {
+      toast.error("Please upload your resume (PDF)!");
+      return;
     }
 
     const token = localStorage.getItem('access_token');
     if (!token) {
-        toast.error("Please Login first!");
-        return;
-    }
-
-    if (!resume) {
-        toast.error("Please upload a resume first!");
-        return;
+      toast.error("Please login to apply.");
+      return;
     }
 
     const formData = new FormData();
     formData.append('resume', resume);
 
     try {
-        const API_URL = process.env.REACT_APP_API_URL || "https://farhanahanfee.pythonanywhere.com";
+      // FIXED: URL must have correct slashes and use POST for data submission
+      await axios.post(
+        `${API_URL}/api/jobs/${selectedJob.id}/apply/`, 
+        formData,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data'
+          }
+        }
+      );
 
-        //await axios.post(
-            //`http://127.0.0.1:8000/api/jobs/${jobIdToStore}/apply/`,
-            await axios.get(`${API_URL}/api/jobs${jobIdToStore}/apply/`,
-            formData,
-            {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'multipart/form-data'
-                }
-            }
-        );
+      toast.success("Applied Successfully!");
+      setAppliedJobIds((prev) => [...prev, Number(selectedJob.id)]);
+      setSelectedJob(null);
+      setResume(null);
 
-        toast.success("Applied Successfully!");
-
-        // Update State immediately so button turns to "Applied"
-        setAppliedJobIds((prev) => [...prev, jobIdToStore]);
-        setSelectedJob(null);
-
-        // Redirect after delay
-        setTimeout(() => {
-            navigate('/profile');
-        }, 1500);
+      setTimeout(() => navigate('/profile'), 1500);
 
     } catch (err) {
-        const serverMessage = err.response?.data?.error || err.response?.data?.detail;
-        if (err.response?.status === 400 && serverMessage?.toLowerCase().includes('already applied')) {
-            toast.error("Already applied!");
-            setAppliedJobIds((prev) => [...prev, jobIdToStore]);
-            setSelectedJob(null);
-        } else {
-            toast.error(serverMessage || "Application failed!");
-        }
+      const serverMessage = err.response?.data?.error || err.response?.data?.detail;
+      if (err.response?.status === 400 && serverMessage?.toLowerCase().includes('already applied')) {
+        toast.error("You have already applied for this role.");
+        setAppliedJobIds((prev) => [...prev, Number(selectedJob.id)]);
+        setSelectedJob(null);
+      } else {
+        toast.error(serverMessage || "Application failed. Try again.");
+      }
     }
   };
 
@@ -138,7 +126,7 @@ const Home = () => {
 
         <div className="relative max-w-7xl mx-auto px-6 py-20 lg:py-28 flex flex-col items-center text-center">
           <span className="px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm font-medium mb-8">
-            🚀 FIZO AI — The Next-Gen Job Portal for Developers
+            🚀 FIZO AI — High Growth Tech Roles
           </span>
 
           <h1 className="text-5xl lg:text-7xl font-extrabold mb-6 tracking-tight">
@@ -169,7 +157,7 @@ const Home = () => {
             </div>
             <button
               onClick={fetchJobs}
-              className="w-full md:w-auto px-8 py-3 bg-blue-600 hover:bg-blue-500 font-bold rounded-xl transition-all shadow-lg shadow-blue-600/20"
+              className="w-full md:w-auto px-8 py-3 bg-blue-600 hover:bg-blue-500 font-bold rounded-xl transition-all shadow-lg"
             >
               Search
             </button>
@@ -181,18 +169,23 @@ const Home = () => {
       <div ref={jobsSectionRef} className="max-w-7xl mx-auto px-6 py-16">
         <h2 className="text-3xl font-bold mb-10">Latest Opportunities</h2>
         {loading ? (
-          <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-blue-500"></div></div>
+          <div className="flex justify-center py-20">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-blue-500"></div>
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {jobs.map((job) => (
-              <JobCard
-                key={job.id}
-                job={job}
-                onApply={() => setSelectedJob(job)}
-                // Using Number conversion to ensure strict matching
-                isApplied={appliedJobIds.some(id => Number(id) === Number(job.id))}
-              />
-            ))}
+            {jobs.length > 0 ? (
+              jobs.map((job) => (
+                <JobCard
+                  key={job.id}
+                  job={job}
+                  onApply={() => setSelectedJob(job)}
+                  isApplied={appliedJobIds.includes(Number(job.id))}
+                />
+              ))
+            ) : (
+              <p className="text-slate-500 col-span-full text-center">No jobs found. Try a different search.</p>
+            )}
           </div>
         )}
       </div>
@@ -201,7 +194,7 @@ const Home = () => {
       {selectedJob && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-slate-800 border border-slate-700 w-full max-w-md p-8 rounded-3xl shadow-2xl relative">
-            <button onClick={() => setSelectedJob(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white"><X /></button>
+            <button onClick={() => {setSelectedJob(null); setResume(null);}} className="absolute top-4 right-4 text-slate-400 hover:text-white"><X /></button>
             <h3 className="text-xl font-bold mb-2">Apply for {selectedJob.title}</h3>
             <p className="text-slate-400 text-sm mb-6">{selectedJob.company}</p>
 
@@ -209,7 +202,7 @@ const Home = () => {
               <input type="file" id="resume" className="hidden" onChange={(e) => setResume(e.target.files[0])} accept=".pdf" />
               <label htmlFor="resume" className="cursor-pointer flex flex-col items-center">
                 <Upload className="text-blue-500 mb-2" size={32} />
-                <span className="text-sm font-medium">{resume ? resume.name : "Click to upload Resume (PDF)"}</span>
+                <span className="text-sm font-medium">{resume ? resume.name : "Upload Resume (PDF)"}</span>
               </label>
             </div>
 
@@ -221,18 +214,19 @@ const Home = () => {
   );
 };
 
+// Reusable JobCard Component
 const JobCard = ({ job, onApply, isApplied }) => {
   const skillsArray = job.skills ? job.skills.split(',') : [];
   return (
-    <div className={`group bg-slate-800/40 backdrop-blur-sm border ${isApplied ? 'border-green-500/50' : 'border-slate-700/50'} p-6 rounded-2xl hover:border-blue-500/50 hover:bg-slate-800 transition-all duration-300 shadow-xl`}>
+    <div className={`group bg-slate-800/40 backdrop-blur-sm border ${isApplied ? 'border-green-500/50' : 'border-slate-700/50'} p-6 rounded-2xl hover:border-blue-500/50 hover:bg-slate-800 transition-all duration-300`}>
       <div className="flex justify-between items-start mb-4">
         <div className="flex gap-4">
-          <div className="w-12 h-12 bg-blue-600/10 rounded-xl flex items-center justify-center border border-blue-500/20 group-hover:scale-110 transition-transform">
+          <div className="w-12 h-12 bg-blue-600/10 rounded-xl flex items-center justify-center border border-blue-500/20">
             <Building2 className="text-blue-400" size={24} />
           </div>
           <div>
             <Link to={`/job/${job.id}`}>
-            <h3 className="text-lg font-bold group-hover:text-blue-400 transition-colors line-clamp-1">{job.title}</h3>
+              <h3 className="text-lg font-bold group-hover:text-blue-400 transition-colors line-clamp-1">{job.title}</h3>
             </Link>
             <p className="text-slate-400 text-sm">{job.company}</p>
           </div>
@@ -250,21 +244,13 @@ const JobCard = ({ job, onApply, isApplied }) => {
           <span className="flex items-center gap-1 font-semibold text-green-500/80 uppercase"><Clock size={12} /> {job.job_type}</span>
         </div>
 
-        {isApplied ? (
-          <button
-            disabled
-            className="px-4 py-2 bg-slate-800 text-slate-500 text-xs font-bold rounded-lg cursor-not-allowed border border-slate-700"
-          >
-            Applied
-          </button>
-        ) : (
-          <button
-            onClick={onApply}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg shadow-lg shadow-blue-600/20 transition-all active:scale-95"
-          >
-            Apply Now
-          </button>
-        )}
+        <button
+          onClick={!isApplied ? onApply : null}
+          disabled={isApplied}
+          className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${isApplied ? 'bg-slate-800 text-slate-500 border border-slate-700' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20'}`}
+        >
+          {isApplied ? 'Applied' : 'Apply Now'}
+        </button>
       </div>
     </div>
   );
