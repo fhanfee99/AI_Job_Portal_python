@@ -6,21 +6,23 @@ import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 
 const Home = () => {
-  const [appliedJobIds, setAppliedJobIds] = useState([]); 
+  const [appliedJobIds, setAppliedJobIds] = useState([]);
   const navigate = useNavigate();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState(""); 
-  const [locationQuery, setLocationQuery] = useState(""); 
-  const jobsSectionRef = useRef(null); 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [locationQuery, setLocationQuery] = useState("");
+  const jobsSectionRef = useRef(null);
 
   const fetchJobs = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`http://127.0.0.1:8000/api/jobs/?search=${searchQuery}&location=${locationQuery}`);
+        const API_URL = process.env.REACT_APP_API_URL || "https://farhanahanfee.pythonanywhere.com";
+        const response = await axios.get(`${API_URL}/api/jobs/?search=${searchQuery}&location=${locationQuery}`);
+    //   const response = await axios.get(`http://127.0.0.1:8000/api/jobs/?search=${searchQuery}&location=${locationQuery}`);
       setJobs(response.data);
       setLoading(false);
-      
+
       if(searchQuery || locationQuery) {
         jobsSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
       }
@@ -36,9 +38,11 @@ const Home = () => {
         console.log("No token found, skipping applied jobs fetch.");
         return;
     }
-    
+
     try {
-        const res = await axios.get('http://127.0.0.1:8000/api/jobs/my-applications/', {
+        const API_URL = process.env.REACT_APP_API_URL || "https://farhanahanfee.pythonanywhere.com";
+        const res = await axios.get(`${API_URL}/api/jobs/my-applications/`,{
+        //const res = await axios.get('http://127.0.0.1:8000/api/jobs/my-applications/', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
 
@@ -47,7 +51,7 @@ const Home = () => {
             return Number(app.job);
         });
 
-        console.log("Fetched Applied IDs on Reload:", ids); 
+        console.log("Fetched Applied IDs on Reload:", ids);
         setAppliedJobIds(ids);
     } catch (err) {
         console.error("Error fetching applied jobs on reload:", err);
@@ -64,14 +68,14 @@ const Home = () => {
 
   const handleApplySubmit = async () => {
     if (!selectedJob) return;
-    
+
     const jobIdToStore = selectedJob?.id;
     if (!jobIdToStore) {
         toast.error("Job ID not found!");
         return;
     }
 
-    const token = localStorage.getItem('access_token'); 
+    const token = localStorage.getItem('access_token');
     if (!token) {
         toast.error("Please Login first!");
         return;
@@ -84,28 +88,31 @@ const Home = () => {
 
     const formData = new FormData();
     formData.append('resume', resume);
-    
+
     try {
-        await axios.post(
-            `http://127.0.0.1:8000/api/jobs/${jobIdToStore}/apply/`, 
-            formData, 
+        const API_URL = process.env.REACT_APP_API_URL || "https://farhanahanfee.pythonanywhere.com";
+
+        //await axios.post(
+            //`http://127.0.0.1:8000/api/jobs/${jobIdToStore}/apply/`,
+            await axios.get(`${API_URL}/api/jobs${jobIdToStore}/apply/`,
+            formData,
             {
-                headers: { 
-                    'Authorization': `Bearer ${token}`, 
+                headers: {
+                    'Authorization': `Bearer ${token}`,
                     'Content-Type': 'multipart/form-data'
                 }
             }
         );
 
         toast.success("Applied Successfully!");
-        
+
         // Update State immediately so button turns to "Applied"
         setAppliedJobIds((prev) => [...prev, jobIdToStore]);
         setSelectedJob(null);
 
         // Redirect after delay
         setTimeout(() => {
-            navigate('/profile'); 
+            navigate('/profile');
         }, 1500);
 
     } catch (err) {
@@ -141,9 +148,9 @@ const Home = () => {
           <div className="w-full max-w-4xl p-2 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl flex flex-col md:flex-row items-center gap-2 shadow-2xl">
             <div className="flex items-center w-full px-4 py-3">
               <Search className="text-slate-500 mr-2" size={20} />
-              <input 
-                type="text" 
-                placeholder="Job title or skills..." 
+              <input
+                type="text"
+                placeholder="Job title or skills..."
                 className="w-full bg-transparent outline-none placeholder:text-slate-500"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -152,15 +159,15 @@ const Home = () => {
             <div className="hidden md:block w-px h-8 bg-white/10"></div>
             <div className="flex items-center w-full px-4 py-3">
               <MapPin className="text-slate-500 mr-2" size={20} />
-              <input 
-                type="text" 
-                placeholder="Location..." 
+              <input
+                type="text"
+                placeholder="Location..."
                 className="w-full bg-transparent outline-none placeholder:text-slate-500"
                 value={locationQuery}
                 onChange={(e) => setLocationQuery(e.target.value)}
               />
             </div>
-            <button 
+            <button
               onClick={fetchJobs}
               className="w-full md:w-auto px-8 py-3 bg-blue-600 hover:bg-blue-500 font-bold rounded-xl transition-all shadow-lg shadow-blue-600/20"
             >
@@ -178,12 +185,12 @@ const Home = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {jobs.map((job) => (
-              <JobCard 
-                key={job.id} 
-                job={job} 
-                onApply={() => setSelectedJob(job)} 
+              <JobCard
+                key={job.id}
+                job={job}
+                onApply={() => setSelectedJob(job)}
                 // Using Number conversion to ensure strict matching
-                isApplied={appliedJobIds.some(id => Number(id) === Number(job.id))} 
+                isApplied={appliedJobIds.some(id => Number(id) === Number(job.id))}
               />
             ))}
           </div>
@@ -197,7 +204,7 @@ const Home = () => {
             <button onClick={() => setSelectedJob(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white"><X /></button>
             <h3 className="text-xl font-bold mb-2">Apply for {selectedJob.title}</h3>
             <p className="text-slate-400 text-sm mb-6">{selectedJob.company}</p>
-            
+
             <div className="border-2 border-dashed border-slate-700 rounded-2xl p-8 text-center hover:border-blue-500/50 transition-colors">
               <input type="file" id="resume" className="hidden" onChange={(e) => setResume(e.target.files[0])} accept=".pdf" />
               <label htmlFor="resume" className="cursor-pointer flex flex-col items-center">
@@ -205,7 +212,7 @@ const Home = () => {
                 <span className="text-sm font-medium">{resume ? resume.name : "Click to upload Resume (PDF)"}</span>
               </label>
             </div>
-            
+
             <button onClick={handleApplySubmit} className="w-full bg-blue-600 mt-6 py-3 rounded-xl font-bold hover:bg-blue-500 transition-all">Submit CV</button>
           </div>
         </div>
@@ -242,17 +249,17 @@ const JobCard = ({ job, onApply, isApplied }) => {
           <span className="flex items-center gap-1 mb-1"><MapPin size={12} /> {job.location}</span>
           <span className="flex items-center gap-1 font-semibold text-green-500/80 uppercase"><Clock size={12} /> {job.job_type}</span>
         </div>
-        
+
         {isApplied ? (
-          <button 
-            disabled 
+          <button
+            disabled
             className="px-4 py-2 bg-slate-800 text-slate-500 text-xs font-bold rounded-lg cursor-not-allowed border border-slate-700"
           >
             Applied
           </button>
         ) : (
-          <button 
-            onClick={onApply} 
+          <button
+            onClick={onApply}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg shadow-lg shadow-blue-600/20 transition-all active:scale-95"
           >
             Apply Now
