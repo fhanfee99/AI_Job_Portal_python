@@ -30,8 +30,7 @@ SECRET_KEY = 'django-insecure-^nq#%(h8g^yihoi4k#!&o$tau=ok7+r^7z&^7y7jhut*jw6!=7
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
-
+ALLOWED_HOSTS = ['farhanahanfee.pythonanywhere.com', '.vercel.app/']
 
 # Application definition
 
@@ -42,12 +41,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    
+
     # Required Libraries
-    'rest_framework',                
-    'rest_framework_simplejwt',      
+    'rest_framework',
+    'rest_framework_simplejwt',
     'corsheaders',
-    
+
     # Your Apps
     'accounts',
     'jobs',
@@ -66,6 +65,10 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.middleware.common.CommonMiddleware',
 ]
+CORS_ALLOWED_ORIGINS = [
+    "https://ai-job-portal-python-nstij90xq-fhanfee99s-projects.vercel.app/",
+    "http://localhost:3000",
+]
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = [
@@ -78,7 +81,7 @@ CORS_ALLOW_HEADERS = [
 ]
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=1), 
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 ROOT_URLCONF = 'core.urls'
@@ -97,7 +100,7 @@ TEMPLATES = [
             ],
         },
     },
-    
+
 ]
 
 WSGI_APPLICATION = 'core.wsgi.application'
