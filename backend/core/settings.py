@@ -30,7 +30,7 @@ SECRET_KEY = 'django-insecure-^nq#%(h8g^yihoi4k#!&o$tau=ok7+r^7z&^7y7jhut*jw6!=7
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['farhanahanfee.pythonanywhere.com', '.vercel.app/']
+ALLOWED_HOSTS = ['farhanahanfee.pythonanywhere.com', '.vercel.app/', 'localhost', '127.0.0.1']
 
 # Application definition
 
@@ -66,8 +66,9 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
 ]
 CORS_ALLOWED_ORIGINS = [
-    "https://ai-job-portal-python-nstij90xq-fhanfee99s-projects.vercel.app/",
+    "https://ai-job-portal-python-nstij90xq-fhanfee99s-projects.vercel.app", 
     "http://localhost:3000",
+    "http://127.0.0.1:3000",
 ]
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
